@@ -4,7 +4,6 @@ void main() {
   runApp(const MyApp());
 }
 
-/// [MyApp] builds the [MaterialApp].
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -31,15 +30,12 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Draggable icon widget to represent each item in the dock.
 class DraggableIcon extends StatelessWidget {
-  /// Creates a draggable icon.
   const DraggableIcon({
     required this.icon,
     super.key,
   });
 
-  /// The icon to display.
   final IconData icon;
 
   @override
@@ -120,81 +116,96 @@ class _DockState<T extends IconData> extends State<Dock<T>>
     super.dispose();
   }
 
-  /// Moves an item from one position to another with animation.
-  void _moveItem(int fromIndex, int toIndex) {
+  void _removeItem(T item) {
     setState(() {
-      final item = _items.removeAt(fromIndex);
-      _items.insert(toIndex, item);
+      _items.remove(item);
+    });
+    _controller.forward(from: 0.0);
+  }
+
+  void _addItem(T item, int index) {
+    setState(() {
+      _items.insert(index, item);
     });
     _controller.forward(from: 0.0);
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: Colors.black12,
-      ),
-      padding: const EdgeInsets.all(4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: List.generate(
-          _items.length,
-          (index) {
-            return MouseRegion(
-              onEnter: (_) {
-                setState(() {
-                  _draggedIndex = index;
-                });
-              },
-              onExit: (_) {
-                setState(() {
-                  _draggedIndex = null;
-                });
-              },
-              child: DragTarget<IconData>(
-                onWillAccept: (data) {
-                  setState(() {
-                    _draggedIndex = index;
-                  });
-                  return true;
-                },
-                onAccept: (data) {
-                  if (_draggedIndex != null && _items.contains(data)) {
-                    final draggedIndex = _items.indexOf(data as T);
-                    _moveItem(draggedIndex, _draggedIndex!);
-                    _controller.forward(from: 0.0);
-                  }
-                  setState(() {
-                    _draggedIndex = null;
-                  });
-                },
-                builder: (context, candidateData, rejectedData) {
-                  return AnimatedBuilder(
-                    animation: _controller,
-                    builder: (context, child) {
-                      final scale = (_draggedIndex != null &&
-                              (_draggedIndex == index ||
-                                  (_draggedIndex! - 1 == index) ||
-                                  (_draggedIndex! + 1 == index)))
-                          ? 1.3
-                          : 1.0;
+    return DragTarget<T>(
+      onAccept: (data) {
+        /// If the icon is outside the dock area, remove it
+        if (!_items.contains(data)) {
+          ///   Add it back if dragged in
+          _addItem(data, _items.length);
+        }
+      },
+      builder: (context, candidateData, rejectedData) {
+        return Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.black12,
+          ),
+          padding: const EdgeInsets.all(4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(
+              _items.length,
+              (index) {
+                return MouseRegion(
+                  onEnter: (_) {
+                    setState(() {
+                      _draggedIndex = index;
+                    });
+                  },
+                  onExit: (_) {
+                    setState(() {
+                      _draggedIndex = null;
+                    });
+                  },
+                  child: DragTarget<IconData>(
+                    onWillAccept: (data) {
+                      setState(() {
+                        _draggedIndex = index;
+                      });
+                      return true;
+                    },
+                    onAccept: (data) {
+                      if (_items.contains(data)) {
+                        final draggedIndex = _items.indexOf(data as T);
+                        _removeItem(data);
+                        setState(() {
+                          _draggedIndex = null;
+                        });
+                      }
+                    },
+                    builder: (context, candidateData, rejectedData) {
+                      return AnimatedBuilder(
+                        animation: _controller,
+                        builder: (context, child) {
+                          final scale = (_draggedIndex != null &&
+                                  (_draggedIndex == index ||
+                                      (_draggedIndex! - 1 == index) ||
+                                      (_draggedIndex! + 1 == index)))
+                              ? 1.3
+                              : 1.0;
 
-                      return Transform.scale(
-                        scale: scale,
-                        child: DraggableIcon(
-                          icon: _items[index],
-                        ),
+                          return Transform.scale(
+                            scale: scale,
+                            child: DraggableIcon(
+                              icon: _items[index],
+                            ),
+                          );
+                        },
                       );
                     },
-                  );
-                },
-              ),
-            );
-          },
-        ),
-      ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }
